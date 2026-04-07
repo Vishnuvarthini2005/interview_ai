@@ -4,36 +4,28 @@ import streamlit as st
 
 class InterviewAgent:
     def __init__(self):
-        # Fetch key from Streamlit Secrets
         api_key = st.secrets.get("GOOGLE_API_KEY")
         if not api_key:
-            st.error("API Key missing! Check Streamlit Cloud Secrets.")
+            st.error("API Key missing!")
             return
-        
         genai.configure(api_key=api_key)
-        # Using the stable 2026 flash model
+        # Using 1.5 Flash for speed and multimodal capabilities
         self.model = genai.GenerativeModel('gemini-2.5-flash')
 
-    def get_chat_response(self, user_input, role, history):
-        """Conversational Tutor for specific notes"""
-        chat = self.model.start_chat(history=history)
-        prompt = f"Context: I am preparing for a {role} role. User Request: {user_input}"
-        response = chat.send_message(prompt)
-        return response.text
-
-    def get_single_mcq(self, topic):
-        """Generates one MCQ at a time"""
-        prompt = f"Provide ONE challenging MCQ for {topic} with 4 options (A, B, C, D). Do not provide the answer."
+    def get_aptitude_q(self, topic):
+        prompt = f"Generate ONE Quantitative/Qualitative Aptitude MCQ for {topic}. Provide Question and 4 Options. No answer."
         return self.model.generate_content(prompt).text
 
-    def get_mock_question(self, role):
-        """Acting as a Senior Interviewer"""
-        prompt = f"You are a Senior Recruiter. Ask ONE professional interview question for a {role} candidate."
+    def get_tech_questions(self, company, role, language):
+        # This prompt triggers Gemini's internal knowledge of past papers
+        prompt = f"Search for real-world technical interview questions for {role} at {company} using {language}. Provide 5 frequent questions and their ideal logical approach."
         return self.model.generate_content(prompt).text
 
-    def analyze_performance(self, transcript):
-        """Final Evaluation logic"""
-        if not transcript:
-            return "No data to analyze."
-        prompt = f"Analyze this interview/test transcript. Provide a score out of 10, 3 strengths, and 3 specific tips to improve: {transcript}"
+    def evaluate_aptitude(self, transcript):
+        prompt = f"Score this aptitude test out of 10. For every WRONG answer, provide a detailed step-by-step mathematical solution: {transcript}"
+        return self.model.generate_content(prompt).text
+
+    def interview_audio_query(self, role):
+        # We ask the model to provide a question specifically meant to be read aloud
+        prompt = f"You are a video interviewer. Ask ONE short, punchy interview question for a {role}."
         return self.model.generate_content(prompt).text
