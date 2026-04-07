@@ -1,67 +1,78 @@
 import streamlit as st
 from brain import InterviewAgent
 
-st.set_page_config(page_title="AI Aptitude Agent", layout="wide")
+st.set_page_config(page_title="One-Stop AI Career Coach", layout="wide")
 agent = InterviewAgent()
 
-# --- Initialize Session Memory ---
-if "quiz_active" not in st.session_state: st.session_state.quiz_active = False
-if "current_q" not in st.session_state: st.session_state.current_q = ""
+# --- Global Session State ---
 if "transcript" not in st.session_state: st.session_state.transcript = ""
-if "score" not in st.session_state: st.session_state.score = 0
-if "q_count" not in st.session_state: st.session_state.q_count = 0
+if "current_q" not in st.session_state: st.session_state.current_q = ""
 
-st.title("🧠 Interactive Aptitude Agent")
+# --- Sidebar Navigation ---
+st.sidebar.title("🚀 Career Mission Control")
+role = st.sidebar.text_input("Target Role/Topic:", "Python Developer")
+menu = st.sidebar.radio("Go to Module:", 
+    ["📚 Revision Notes", "🧠 Aptitude Round", "🎥 Video Mock Interview", "📝 Text Mock Interview"])
 
-# Sidebar Setup
-topic = st.sidebar.text_input("Enter Topic for MCQ:", "Python Loops")
+# --- 1. REVISION NOTES ---
+if menu == "📚 Revision Notes":
+    st.header("Quick Revision Notes")
+    if st.button("Generate Study Material"):
+        with st.spinner("Writing notes..."):
+            notes = agent.generate_notes(role)
+            st.markdown(notes)
 
-# --- THE SEPARATE MCQ BUTTON ---
-if st.sidebar.button("Start Aptitude Round"):
-    st.session_state.quiz_active = True
-    st.session_state.transcript = ""
-    st.session_state.score = 0
-    st.session_state.q_count = 0
-    st.session_state.current_q = agent.get_single_mcq(topic, "")
-
-# --- QUIZ INTERFACE ---
-if st.session_state.quiz_active:
-    st.subheader(f"Round: {topic} (Question {st.session_state.q_count + 1})")
+# --- 2. APTITUDE ROUND ---
+elif menu == "🧠 Aptitude Round":
+    st.header("Interactive Aptitude Test")
+    if "apt_q" not in st.session_state: st.session_state.apt_q = ""
     
-    # Display the Question
-    st.info(st.session_state.current_q)
+    if st.button("Get New Question"):
+        st.session_state.apt_q = agent.get_single_mcq(role)
     
-    # User Interaction
-    user_choice = st.radio("Select your answer:", ["A", "B", "C", "D"], key=f"q_{st.session_state.q_count}")
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        if st.button("Submit Answer"):
-            # Evaluate
-            result = agent.evaluate_answer(st.session_state.current_q, user_choice)
-            st.session_state.transcript += f"Q: {st.session_state.current_q}\nUser: {user_choice}\nResult: {result}\n\n"
-            
-            if "CORRECT" in result.upper() and "INCORRECT" not in result.upper():
-                st.session_state.score += 1
-                st.success(result)
-            else:
-                st.error(result)
-            
-            # Prepare next question
-            st.session_state.q_count += 1
-            st.session_state.current_q = agent.get_single_mcq(topic, st.session_state.transcript)
-            st.rerun()
+    if st.session_state.apt_q:
+        st.info(st.session_state.apt_q)
+        ans = st.text_input("Your Answer (A/B/C/D):")
+        if st.button("Submit & Save"):
+            st.session_state.transcript += f"Q: {st.session_state.apt_q}\nUser Answer: {ans}\n\n"
+            st.success("Recorded! Get next or finish below.")
 
-    with col2:
-        if st.button("Stop & Evaluate"):
-            st.session_state.quiz_active = False
-            feedback = agent.generate_final_feedback(st.session_state.transcript)
-            st.divider()
-            st.header("📊 Final Performance Report")
-            st.write(f"**Total Questions Answered:** {st.session_state.q_count}")
-            st.write(f"**Correct Answers:** {st.session_state.score}")
-            st.markdown(feedback)
+# --- 3. VIDEO MOCK INTERVIEW ---
+elif menu == "🎥 Video Mock Interview":
+    st.header("AI Video Interviewer")
+    st.camera_input("Maintain eye contact with the camera")
+    
+    if st.button("Start Interview / Ask Question"):
+        st.session_state.current_q = agent.get_mock_question(role)
+        
+    if st.session_state.current_q:
+        st.warning(f"**AI:** {st.session_state.current_q}")
+        response = st.text_area("Your Response (Speak/Type):")
+        if st.button("Submit Response"):
+            st.session_state.transcript += f"Int: {st.session_state.current_q}\nCand: {response}\n\n"
+            st.success("Response logged.")
 
-else:
-    st.write("Click the button in the sidebar to start your personalized aptitude round.")
+# --- 4. TEXT MOCK INTERVIEW ---
+elif menu == "📝 Text Mock Interview":
+    st.header("Chat-based Interview")
+    if st.button("Ask Me Something"):
+        st.session_state.current_q = agent.get_mock_question(role)
+    
+    if st.session_state.current_q:
+        st.chat_message("assistant").write(st.session_state.current_q)
+        chat_ans = st.text_input("Chat here...")
+        if st.button("Send"):
+            st.session_state.transcript += f"Chat Q: {st.session_state.current_q}\nChat A: {chat_ans}\n\n"
+
+# --- UNIVERSAL FEEDBACK & DOWNLOADER ---
+st.divider()
+st.sidebar.subheader("🏁 Finish Session")
+if st.sidebar.button("Generate Final Report"):
+    if st.session_state.transcript:
+        report = agent.analyze_performance(st.session_state.transcript)
+        st.header("📊 Final Feedback Report")
+        st.markdown(report)
+        # Download Button
+        st.download_button("📥 Download Feedback as TXT", report, file_name="interview_feedback.txt")
+    else:
+        st.sidebar.error("No transcript found. Please complete some tasks first!")
